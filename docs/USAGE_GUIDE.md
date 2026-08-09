@@ -1,6 +1,6 @@
 # Usage Guide
 
-This guide documents the configurable analysis workflow in the `TVCG_Analysis_Code_Package` repository. It explains how to run the supplied examples, prepare new datasets, edit configuration files, interpret the automatic statistical decisions, and locate results in the Excel workbook and figures PDF.
+This guide documents the configurable analysis workflow in the `TVCG_Statistical_Analysis_Code_Package` repository. It explains how to run the supplied examples, prepare new datasets, edit configuration files, interpret the automatic statistical decisions, and locate results in the Excel workbook and figures PDF.
 
 For a project overview and quick start, see the repository [README](../README.md).
 
@@ -24,7 +24,7 @@ For a new analysis, copy and edit `configs/Config_Template.R`. Do not normally e
 ## 2. Repository contents
 
 ```text
-TVCG_Analysis_Code_Package/
+TVCG_Statistical_Analysis_Code_Package/
 ├── README.md
 ├── TVCG_Factorial_ANOVA_ART_Analysis.R
 ├── run_example_1.R
