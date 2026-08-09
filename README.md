@@ -30,7 +30,7 @@ The repository provides a reusable R workflow for configurable one-, two-, or th
 ## Key repository files
 
 ```text
-TVCG_Analysis_Code_Package/
+TVCG_Statistical_Analysis_Code_Package/
 ├── README.md
 ├── TVCG_Factorial_ANOVA_ART_Analysis.R
 ├── run_example_1.R
