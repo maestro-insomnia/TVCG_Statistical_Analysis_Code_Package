@@ -1,12 +1,12 @@
-# Usage Guide
+# General ANOVA/ART Analysis — Usage Guide
 
-This guide documents the configurable analysis workflow in the `TVCG_Analysis_Code_Package` repository. It explains how to run the supplied examples, prepare new datasets, edit configuration files, interpret the automatic statistical decisions, and locate results in the Excel workbook and figures PDF.
+This guide documents the configurable workflow in `General_ANOVA_ART_Analysis/`, the reusable analysis component of the repository `TVCG_Statistical_Analysis_Code_Package`. It explains how to run the supplied examples, prepare new datasets, edit configuration files, interpret the automatic statistical decisions, and locate results in the Excel workbook and figures PDF.
 
-For a project overview and quick start, see the repository [README](../README.md).
+For an overview of this analysis component, see [`General_ANOVA_ART_Analysis/README.md`](../README.md). For the overall repository structure, including the separate pilot-study analysis folder, see the [repository-level README](../../README.md).
 
 ## 1. Workflow architecture
 
-The repository separates the statistical implementation from study-specific settings:
+The `General_ANOVA_ART_Analysis` folder separates the statistical implementation from study-specific settings:
 
 - `TVCG_Factorial_ANOVA_ART_Analysis.R` is the analysis engine.
 - `configs/*.R` files define the data source, factors, outcomes, analysis rules, correlation settings, plots, and output behavior.
@@ -24,7 +24,7 @@ For a new analysis, copy and edit `configs/Config_Template.R`. Do not normally e
 ## 2. Repository contents
 
 ```text
-TVCG_Analysis_Code_Package/
+General_ANOVA_ART_Analysis/
 ├── README.md
 ├── TVCG_Factorial_ANOVA_ART_Analysis.R
 ├── run_example_1.R
@@ -56,6 +56,8 @@ TVCG_Analysis_Code_Package/
     └── results/
 ```
 
+At the repository level, this folder sits alongside `Statistical_Analysis_Code_for_Pilot_Study/`. The two components are intentionally separated because this guide documents only the reusable general ANOVA/ART workflow.
+
 ### Example 1
 
 `Config_Example_1_Default_TVCG.R` analyzes a synthetic `2 × 2 × 4` design using the TVCG-style factor and outcome names.
@@ -78,7 +80,7 @@ TVCG_Analysis_Code_Package/
 
 ## 3. R environment and packages
 
-The statistical engine has passed the 16-case synthetic regression suite in the target R environment, and the v37 warning-audit run completed with no unexpected warnings. Version 35 expanded Example 4 to a 2 × 6 fully within-subjects dataset, Version 36 removed deprecated tidyselect `.data` references, Version 37 added full warning auditing, and Version 38 adds isolated smoke execution of all five supplied repository examples without changing the statistical engine. RStudio is optional.
+A recent installation of R is required, and RStudio is optional. The folder includes an automated release-check suite that combines synthetic regression tests, warning auditing, and smoke execution of the supplied examples. These checks are intended to detect statistical-path, output-structure, and runtime-warning regressions when the workflow is modified.
 
 The engine uses:
 
@@ -107,7 +109,7 @@ The script records the R version and session information in the run outputs when
 
 ### 4.1 RStudio or R console
 
-From the repository folder:
+From the `General_ANOVA_ART_Analysis` folder:
 
 ```r
 source("run_example_1.R")
@@ -154,7 +156,7 @@ Rscript TVCG_Factorial_ANOVA_ART_Analysis.R configs/Config_Example_1_Default_TVC
 
 ### 4.4 Automated release checks
 
-The default test command now runs both the 16 synthetic regression cases and five smoke tests that execute the actual repository launchers:
+The default test command runs both the 16 synthetic regression cases and five smoke tests that execute the actual launchers supplied in `General_ANOVA_ART_Analysis/`:
 
 ```bash
 Rscript tests/run_design_tests.R
@@ -170,7 +172,7 @@ Rscript tests/run_design_tests.R --case=T07
 Rscript tests/run_design_tests.R --case=E04
 ```
 
-`E01`–`E05` copy the real launcher, engine, matching configuration, and matching example workbook into isolated smoke sandboxes before execution, so relative paths are tested without writing generated files into the repository's `examples/` folder. In addition to workbook/PDF/log creation and workbook-structure checks, Example 4 must preserve the 2 × 6 fully within-subjects design and exercise both repeated-measures ANOVA and ART-ANOVA; Example 5 must exercise both mixed ANOVA and mixed ART-ANOVA. The v37 warning audit remains active for both layers: emitted warning conditions and warnings recorded internally by the engine are collected into `test_warnings.csv` and `test_warning_summary.csv`, and unexpected warnings fail the release gate. See `tests/TEST_CASES.md` for the full matrix.
+`E01`–`E05` copy the real launcher, engine, matching configuration, and matching example workbook into isolated smoke sandboxes before execution, so relative paths are tested without writing generated files into the repository's `examples/` folder. In addition to workbook/PDF/log creation and workbook-structure checks, Example 4 must preserve the 2 × 6 fully within-subjects design and exercise both repeated-measures ANOVA and ART-ANOVA; Example 5 must exercise both mixed ANOVA and mixed ART-ANOVA. The warning audit is active for both layers: emitted warning conditions and warnings recorded internally by the engine are collected into `test_warnings.csv` and `test_warning_summary.csv`, and unexpected warnings fail the release gate. See `tests/TEST_CASES.md` for the full matrix.
 
 ## 5. Preparing input data
 
@@ -940,6 +942,8 @@ Factor columns follow the enabled factor order defined in the configuration. Pai
 
 For repeated parametric ANOVA, Mauchly tests are inherently effect-specific. A two-level within-subject effect does not require a non-trivial sphericity test; such effects may therefore have no Mauchly row even though their omnibus ANOVA result is present. If ART-ANOVA is selected for a repeated outcome, the sphericity worksheet records that Mauchly testing is not applicable to that ART mixed-effects path.
 
+Every exported sphericity row is mapped back to a valid configured factorial effect. Automatically generated numeric row names from intermediate summary objects are not treated as effect identifiers, and unmapped rows are discarded before export. This prevents spurious `Effect_Code`/`Effect_Label` values such as `1`, `2`, or `3` from appearing in `Sphericity_Tests`.
+
 When correlation analysis is disabled or cannot be performed, the corresponding correlation worksheets remain in their logical positions but contain no computed test results or only the available diagnostic information.
 
 ## 11. Figures PDF reference
@@ -1274,30 +1278,7 @@ A warning that a package was built under a different R version is usually a comp
 - Shapiro–Wilk tests can be sensitive to sample size, and non-significance does not prove normality.
 - Levene non-significance does not prove equal variance. In mixed designs, the automatic screening rule requires all evaluable within-condition-specific Levene tests to be non-significant and reports the smallest p-value.
 - Repeated/mixed ART uses an ARTool mixed-effects formulation with a participant random intercept `(1|ID)`. This is a general-purpose repeated-observation specification, not a replacement for study-specific random-effects modeling when a richer model is scientifically required.
-- Repeated-design correlations use participant-level means across repeated conditions; the engine does not implement repeated-measures correlation. Version 31 retains the source-column-name validation added to the repeated-design correlation path to prevent silent zero-length correlation inputs.
+- Repeated-design correlations use participant-level means across repeated conditions; the engine does not implement repeated-measures correlation. The repeated-design correlation path validates the configured source-column names to prevent silent zero-length correlation inputs.
 - Pairwise deletion can produce different sample sizes across correlations.
 - Multiplicity corrections can substantially reduce power when many comparisons are tested.
 - Researchers should inspect diagnostics, effect estimates, confidence intervals, cell sizes, and study design before reporting results.
-
-## v33 repeated-measures diagnostic robustness
-
-For repeated-measures and mixed ANOVA, the workflow obtains Mauchly's sphericity tests and GG/HF corrections from the supported `summary(afex_aov)` output. A direct summary of the underlying `car::Anova` object is used only as a compatibility fallback. Correlation-matrix worksheet headers preserve configured outcome labels exactly, including spaces and punctuation.
-
-## v34 regression-result robustness
-
-The full v33 regression run confirmed that the remaining failures were confined to correlation-matrix header auditing and Mauchly diagnostic extraction. In v34, regression tests read correlation-matrix headers from literal worksheet cells so labels containing spaces are audited exactly as displayed in Excel. For repeated-measures ANOVA, sphericity diagnostics are first taken from the public afex summary, then supplemented from the underlying car summary component-by-component. If a finite Mauchly value is still unavailable for a non-trivial within-subject effect, the workflow recovers the value from the `car::Anova` object's stored repeated-measures matrices using the same calculation used by car's summary method. This recovery is used only for the diagnostic table and does not change the ANOVA model or its inferential results.
-
-
-## v37 warning-audit regression gate
-
-The regression runner temporarily sets `options(lifecycle_verbosity = "warning")` while tests execute so lifecycle deprecation warnings are signalled consistently. Each warning that reaches the runner is recorded with its test case, phase, condition class, message, and call. Warnings that the analysis engine deliberately captures and muffles are additionally recovered from `Warnings_Errors`, preserving model-level warnings in the audit even when they do not propagate to the console. T12's repeated-measures completeness warning is classified as expected; package-build/environment warnings are retained as environment warnings; all other warnings are treated as unexpected and fail the warning gate.
-
-
-## v38 actual-example release smoke tests
-
-The release runner now distinguishes `Design regression` and `Actual example smoke` in `test_summary.csv` and `test_report.xlsx`. Full release checking executes `T01`–`T16` plus `E01`–`E05`. Smoke cases validate the real launcher/config/data wiring, output names, workbook/PDF/log generation, design-adaptive worksheet structure, complete factorial effect counts, and warning cleanliness. They run from isolated copies under `tests/outputs/actual_examples/`, so the source example workbooks and repository folders remain unchanged.
-
-### Sphericity effect identifiers
-
-For within-subject and mixed ANOVA results, rows in `Sphericity_Tests` are exported only when the source summary row can be mapped to a configured factorial effect. `Effect_Code` therefore uses the same configured effect notation as the omnibus tables (for example `F2` or `F1:F2`), and `Effect_Label` is reconstructed from the configured factor labels. Automatic spreadsheet/data-frame row numbers such as `1`, `2`, `3`, ... are never valid effect identifiers and are excluded.
-
