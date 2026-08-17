@@ -2,14 +2,9 @@
 
 Statistical analysis code accompanying the TVCG manuscript **“Virtual Character-Mediated Communication in VR: Effects of Appearance Fidelity and Speech Fidelity.”**
 
-This repository is organized into two analysis components:
+This repository contains two analysis components with different purposes. The main component, **`General_ANOVA_ART_Analysis/`**, provides a reusable and configurable R workflow for factorial statistical analysis. The second component, **`Statistical_Analysis_Code_for_Pilot_Study/`**, preserves the study-specific analysis used for the manuscript's pilot study.
 
-1. **`General_ANOVA_ART_Analysis/`** — a reusable R workflow for configurable one-, two-, or three-factor experiments, including between-subjects, within-subjects, and mixed designs, with automatic selection between ANOVA and aligned rank transform ANOVA (ART-ANOVA).
-2. **`Statistical_Analysis_Code_for_Pilot_Study/`** — the study-specific statistical analysis code used for the pilot study associated with the manuscript.
-
-The two folders serve different purposes: the first provides a general-purpose configurable analysis workflow, whereas the second preserves the analysis code used for the pilot study.
-
-> **Synthetic-data notice:** The example workbooks supplied with `General_ANOVA_ART_Analysis/` contain synthetic data only. They do not contain original participant data and are not intended to reproduce the numerical results reported in the manuscript.
+> **Synthetic-data notice:** The example datasets included in this repository are synthetic. They do not contain original participant data and are not intended to reproduce the numerical results reported in the manuscript. They are provided to demonstrate the expected input structure and analysis workflow.
 
 ## Repository structure
 
@@ -29,54 +24,72 @@ TVCG_Statistical_Analysis_Code_Package/
 │   │   └── USAGE_GUIDE.md
 │   └── examples/
 └── Statistical_Analysis_Code_for_Pilot_Study/
-    └── ...
+    ├── README.md
+    ├── Pilot_Statistical_Analysis_Public.R
+    └── Pilot_Example_Data.csv
 ```
 
 ## General ANOVA/ART Analysis
 
-`General_ANOVA_ART_Analysis/` contains the reusable workflow used to configure and run factorial analyses without modifying the statistical engine itself.
+**`General_ANOVA_ART_Analysis/`** is the primary reusable component of this repository. It provides a configurable R workflow for one-, two-, or three-factor experiments and supports **between-subjects, within-subjects, and mixed designs**.
 
-Key capabilities include:
+For each enabled dependent variable, the workflow can automatically select between parametric ANOVA and aligned rank transform ANOVA (ART-ANOVA), perform follow-up analyses, calculate effect sizes and descriptive statistics, optionally conduct correlation analysis, and export the results to a structured Excel workbook and multi-page PDF.
 
-- one-, two-, or three-factor designs;
-- all-between-subjects, all-within-subjects, and mixed designs;
-- wide- and long-format input;
-- automatic per-outcome selection between ANOVA and ART-ANOVA;
-- design-aware Shapiro–Wilk and Levene diagnostics;
-- Mauchly's test and Greenhouse–Geisser/Huynh–Feldt corrections for repeated-measures parametric ANOVA effects;
-- partial eta-squared and Cohen's *f*;
-- main-effect and interaction follow-up analyses with configurable multiplicity correction;
-- descriptive statistics;
-- optional Pearson/Spearman correlation analysis;
-- structured Excel output and multi-page PDF figures.
+### Main capabilities
 
-For a quick start and feature overview, see:
+- Configurable **one-, two-, or three-factor designs**.
+- Each factor can be specified as **between-subjects** or **within-subjects**.
+- Supports:
+  - all-between-subjects designs;
+  - all-within-subjects designs; and
+  - mixed designs.
+- Wide- and long-format input support.
+- Automatic per-outcome selection between:
+  - Type III ANOVA; and
+  - ART-ANOVA.
+- Complete factorial models with all enabled main effects and interactions.
+- Design-aware assumption diagnostics:
+  - residual Shapiro–Wilk tests;
+  - Levene tests when between-subject variation is present; and
+  - Mauchly sphericity tests for applicable repeated-measures ANOVA effects.
+- Greenhouse–Geisser, Huynh–Feldt, or no sphericity correction for repeated-measures parametric ANOVA.
+- Partial eta-squared, Cohen's *f*, and qualitative effect-size labels.
+- Main-effect pairwise comparisons, interaction-cell comparisons, and interaction contrasts.
+- Configurable multiplicity adjustment, including Bonferroni correction.
+- Overall, main-effect, and interaction-cell descriptive statistics.
+- Optional unified Pearson or Spearman correlation analysis.
+- Structured Excel output containing statistical results, diagnostics, and column definitions.
+- Multi-page PDF output containing main-effect plots, interaction plots, significance annotations, and an optional correlation heatmap.
 
-**[`General_ANOVA_ART_Analysis/README.md`](General_ANOVA_ART_Analysis/README.md)**
+### Supplied examples
 
-For the complete configuration and usage reference, see:
+Five synthetic examples are included to demonstrate the supported design types:
 
-**[`General_ANOVA_ART_Analysis/docs/USAGE_GUIDE.md`](General_ANOVA_ART_Analysis/docs/USAGE_GUIDE.md)**
+| Example | Design |
+|---|---|
+| `run_example_1.R` | Three-factor between-subjects design |
+| `run_example_2.R` | Single-factor between-subjects design |
+| `run_example_3.R` | Two-factor between-subjects design |
+| `run_example_4.R` | Two-factor within-subjects design |
+| `run_example_5.R` | Mixed design |
 
-## Pilot-study analysis code
+The corresponding configuration files are stored in `General_ANOVA_ART_Analysis/configs/`, and the synthetic input workbooks are stored in `General_ANOVA_ART_Analysis/examples/`.
 
-`Statistical_Analysis_Code_for_Pilot_Study/` contains the analysis code used specifically for the pilot study. It is kept separate from the reusable general workflow so that manuscript-specific pilot analyses and the configurable ANOVA/ART framework are clearly distinguished.
+### Quick start
 
-## Quick start for the general workflow
-
-Clone or download the repository and enter the general-analysis folder:
+Enter the general-analysis directory:
 
 ```bash
 cd General_ANOVA_ART_Analysis
 ```
 
-Then, from R or RStudio, run one of the supplied examples:
+Then run one of the supplied examples from R or RStudio:
 
 ```r
 source("run_example_1.R")
 ```
 
-or run the analysis engine directly with a configuration file:
+Alternatively, run the analysis engine directly with a configuration file:
 
 ```r
 source("TVCG_Factorial_ANOVA_ART_Analysis.R")
@@ -89,10 +102,34 @@ Command-line alternative:
 Rscript TVCG_Factorial_ANOVA_ART_Analysis.R configs/Config_Example_1_Default_TVCG.R
 ```
 
+For a feature overview and package-level instructions, see:
+
+**[`General_ANOVA_ART_Analysis/README.md`](General_ANOVA_ART_Analysis/README.md)**
+
+For the complete input-format and configuration reference, see:
+
+**[`General_ANOVA_ART_Analysis/docs/USAGE_GUIDE.md`](General_ANOVA_ART_Analysis/docs/USAGE_GUIDE.md)**
+
+## Pilot-study statistical analysis
+
+**`Statistical_Analysis_Code_for_Pilot_Study/`** contains the study-specific R workflow used for the pilot-study validation analyses in the manuscript. It covers perceived-age validation, audio-processing validation, and audiovisual validation, and exports the corresponding results to a structured Excel workbook.
+
+This code follows the specific pilot-study design and analysis plan and is therefore provided primarily for **reproducibility**, rather than as a general-purpose statistical-analysis framework.
+
+For details, see:
+
+**[`Statistical_Analysis_Code_for_Pilot_Study/README.md`](Statistical_Analysis_Code_for_Pilot_Study/README.md)**
+
+## Requirements
+
+A recent installation of **R** is required. **RStudio** is optional.
+
+Each analysis component documents its own package dependencies and execution instructions in its local README.
+
 ## Citation
 
 This repository accompanies the manuscript:
 
 > *Yu Han, Hao Sha, Tongtai Cao, Xin Wang, Yu Miao, Yue Liu, Huyen Nguyen, and Christian Sandor, “Virtual Character-Mediated Communication in VR: Effects of Appearance Fidelity and Speech Fidelity.”*
 
-Complete bibliographic and BibTeX information can be added here after publication.
+Complete bibliographic and BibTeX information can be added after publication.
