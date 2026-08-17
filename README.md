@@ -2,7 +2,7 @@
 
 Statistical analysis code accompanying the TVCG manuscript **“Virtual Character-Mediated Communication in VR: Effects of Appearance Fidelity and Speech Fidelity.”**
 
-This repository contains two analysis components with different purposes. The main component, **`General_ANOVA_ART_Analysis/`**, provides a reusable and configurable R workflow for factorial statistical analysis. The second component, **`Statistical_Analysis_Code_for_Pilot_Study/`**, preserves the study-specific analysis used for the manuscript's pilot study.
+This repository contains two analysis components with different purposes. The main component, **`General_ANOVA_ART_Analysis/`**, provides a reusable and configurable R workflow for factorial statistical analysis. It is designed to accommodate both data that satisfy the assumptions required for parametric ANOVA and data for which those assumptions are not adequately met, using either ANOVA or [aligned rank transform (ART) ANOVA](https://dl.acm.org/doi/abs/10.1145/1978942.1978963) as appropriate. The second component, **`Statistical_Analysis_Code_for_Pilot_Study/`**, preserves the study-specific analysis used for the manuscript's pilot study.
 
 > **Synthetic-data notice:** The example datasets included in this repository are synthetic. They do not contain original participant data and are not intended to reproduce the numerical results reported in the manuscript. They are provided to demonstrate the expected input structure and analysis workflow.
 
@@ -33,7 +33,9 @@ TVCG_Statistical_Analysis_Code_Package/
 
 **`General_ANOVA_ART_Analysis/`** is the primary reusable component of this repository. It provides a configurable R workflow for one-, two-, or three-factor experiments and supports **between-subjects, within-subjects, and mixed designs**.
 
-For each enabled dependent variable, the workflow can automatically select between parametric ANOVA and aligned rank transform ANOVA (ART-ANOVA), perform follow-up analyses, calculate effect sizes and descriptive statistics, optionally conduct correlation analysis, and export the results to a structured Excel workbook and multi-page PDF.
+For each enabled dependent variable, the workflow can automatically select between parametric ANOVA and [aligned rank transform ANOVA (ART-ANOVA)](https://dl.acm.org/doi/abs/10.1145/1978942.1978963), perform follow-up analyses, calculate effect sizes and descriptive statistics, optionally conduct correlation analysis, and export the results to a structured Excel workbook and multi-page PDF. Parametric ANOVA is used when the implemented assumption checks support that analysis path; when those assumptions are not adequately met, the workflow can use ART-ANOVA instead.
+
+The [aligned rank transform (ART)](https://dl.acm.org/doi/abs/10.1145/1978942.1978963) is a nonparametric procedure for factorial designs. It aligns observations separately for the effects being tested and then ranks the aligned responses, allowing main effects and interactions to be evaluated using familiar ANOVA-style F tests while avoiding the normality requirements of conventional parametric ANOVA.
 
 ### Main capabilities
 
@@ -46,7 +48,7 @@ For each enabled dependent variable, the workflow can automatically select betwe
 - Wide- and long-format input support.
 - Automatic per-outcome selection between:
   - Type III ANOVA; and
-  - ART-ANOVA.
+  - [ART-ANOVA](https://dl.acm.org/doi/abs/10.1145/1978942.1978963).
 - Complete factorial models with all enabled main effects and interactions.
 - Design-aware assumption diagnostics:
   - residual Shapiro–Wilk tests;
@@ -122,7 +124,7 @@ For details, see:
 
 ## Requirements
 
-A recent installation of **R** is required. **RStudio** is optional.
+A recent installation of **R** is required. **RStudio** is optional. The complete repository, including both analysis components, was tested successfully with **R version 4.5.3**.
 
 Each analysis component documents its own package dependencies and execution instructions in its local README.
 
