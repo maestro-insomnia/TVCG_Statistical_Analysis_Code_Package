@@ -40,8 +40,7 @@ The analysis covers three pilot-study validation stages: perceived-age validatio
 Statistical_Analysis_Code_for_Pilot_Study/
 ├── README.md
 ├── Pilot_Statistical_Analysis_Public.R
-├── Pilot_Example_Data.csv
-└── Pilot_Example_Data.xlsx
+└── Pilot_Example_Data.csv
 ```
 
 The files are:
@@ -52,8 +51,6 @@ The files are:
 - **`Pilot_Example_Data.csv`**  
   Synthetic example dataset used by the R script by default.
 
-- **`Pilot_Example_Data.xlsx`**  
-  Spreadsheet version of the synthetic example dataset, including a codebook and brief dataset description.
 
 Running the script generates:
 
