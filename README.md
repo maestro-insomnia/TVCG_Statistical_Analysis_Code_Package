@@ -57,11 +57,13 @@ The [aligned rank transform (ART)](https://dl.acm.org/doi/abs/10.1145/1978942.19
 - Greenhouse–Geisser, Huynh–Feldt, or no sphericity correction for repeated-measures parametric ANOVA.
 - Partial eta-squared, Cohen's *f*, and qualitative effect-size labels.
 - Main-effect pairwise comparisons, interaction-cell comparisons, and interaction contrasts.
-- Configurable multiplicity adjustment, including Bonferroni correction.
+- Independent configurable p-value adjustment for ANOVA/ART follow-up analyses, with **Bonferroni** as the default.
+- Independent configurable p-value adjustment for correlation analysis, with **Benjamini–Hochberg (BH/FDR)** as the default.
+- Configuration-level and function-level overrides for both adjustment methods.
 - Overall, main-effect, and interaction-cell descriptive statistics.
 - Optional unified Pearson or Spearman correlation analysis.
-- Structured Excel output containing statistical results, diagnostics, and column definitions.
-- Multi-page PDF output containing main-effect plots, interaction plots, significance annotations, and an optional correlation heatmap.
+- Structured Excel output containing statistical results, diagnostics, dynamically named adjusted-p fields, and column definitions that reflect the active adjustment method.
+- Multi-page PDF output containing main-effect plots, interaction plots, significance annotations, dynamic p-adjustment labels, and an optional correlation heatmap.
 
 ### Supplied examples
 
@@ -76,6 +78,7 @@ Five synthetic examples are included to demonstrate the supported design types:
 | `run_example_5.R` | Mixed design |
 
 The corresponding configuration files are stored in `General_ANOVA_ART_Analysis/configs/`, and the synthetic input workbooks are stored in `General_ANOVA_ART_Analysis/examples/`.
+
 
 ### Quick start
 
