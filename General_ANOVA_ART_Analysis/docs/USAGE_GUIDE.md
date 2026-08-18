@@ -1,12 +1,12 @@
-# Usage Guide
+# General ANOVA/ART Analysis — Usage Guide
 
-This guide documents the configurable analysis workflow in the `TVCG_Analysis_Code_Package` repository. It explains how to run the supplied examples, prepare new datasets, edit configuration files, interpret the automatic statistical decisions, and locate results in the Excel workbook and figures PDF.
+This guide documents the configurable workflow in `General_ANOVA_ART_Analysis/`, the reusable analysis component of the repository `TVCG_Statistical_Analysis_Code_Package`. It explains how to run the supplied examples, prepare new datasets, edit configuration files, interpret the automatic statistical decisions, and locate results in the Excel workbook and figures PDF.
 
-For a project overview and quick start, see the repository [README](../README.md).
+For an overview of this analysis component, see [`General_ANOVA_ART_Analysis/README.md`](../README.md). For the overall repository structure, including the separate pilot-study analysis folder, see the [repository-level README](../../README.md).
 
 ## 1. Workflow architecture
 
-The repository separates the statistical implementation from study-specific settings:
+The `General_ANOVA_ART_Analysis` folder separates the statistical implementation from study-specific settings:
 
 - `TVCG_Factorial_ANOVA_ART_Analysis.R` is the analysis engine.
 - `configs/*.R` files define the data source, factors, outcomes, analysis rules, correlation settings, plots, and output behavior.
@@ -24,7 +24,7 @@ For a new analysis, copy and edit `configs/Config_Template.R`. Do not normally e
 ## 2. Repository contents
 
 ```text
-TVCG_Analysis_Code_Package/
+General_ANOVA_ART_Analysis/
 ├── README.md
 ├── TVCG_Factorial_ANOVA_ART_Analysis.R
 ├── run_example_1.R
@@ -41,20 +41,15 @@ TVCG_Analysis_Code_Package/
 │   └── Config_Template.R
 ├── docs/
 │   └── USAGE_GUIDE.md
-├── examples/
-│   ├── Example_Data_1_Default_TVCG_Format.xlsx
-│   ├── Example_Data_2_Single_Factor.xlsx
-│   ├── Example_Data_3_Two_Factor.xlsx
-│   ├── Example_Data_4_Within_Subjects.xlsx
-│   └── Example_Data_5_Mixed_Design.xlsx
-└── tests/
-    ├── run_design_tests.R
-    ├── TEST_CASES.md
-    ├── data/
-    ├── configs/
-    ├── outputs/
-    └── results/
+└── examples/
+    ├── Example_Data_1_Default_TVCG_Format.xlsx
+    ├── Example_Data_2_Single_Factor.xlsx
+    ├── Example_Data_3_Two_Factor.xlsx
+    ├── Example_Data_4_Within_Subjects.xlsx
+    └── Example_Data_5_Mixed_Design.xlsx
 ```
+
+At the repository level, this folder sits alongside `Statistical_Analysis_Code_for_Pilot_Study/`. The two components are intentionally separated because this guide documents only the reusable general ANOVA/ART workflow.
 
 ### Example 1
 
@@ -78,7 +73,7 @@ TVCG_Analysis_Code_Package/
 
 ## 3. R environment and packages
 
-Earlier releases passed the synthetic regression and warning-audit suites in the target R environment. Version 43 adds separate configurable p-value adjustments for factorial follow-up analyses and correlations, plus a new T17 custom-adjustment regression case. The v43 runtime release gate should be rerun after this change. RStudio is optional.
+A recent installation of R is required, and RStudio is optional.
 
 The engine uses:
 
@@ -107,7 +102,7 @@ The script records the R version and session information in the run outputs when
 
 ### 4.1 RStudio or R console
 
-From the repository folder:
+From the `General_ANOVA_ART_Analysis` folder:
 
 ```r
 source("run_example_1.R")
@@ -152,25 +147,6 @@ run_analysis("configs/Config_Example_1_Default_TVCG.R")
 Rscript TVCG_Factorial_ANOVA_ART_Analysis.R configs/Config_Example_1_Default_TVCG.R
 ```
 
-### 4.4 Automated release checks
-
-The default test command now runs 17 synthetic regression cases (T01–T17) and five smoke tests that execute the actual repository launchers:
-
-```bash
-Rscript tests/run_design_tests.R
-```
-
-Useful variants are:
-
-```bash
-Rscript tests/run_design_tests.R --quick
-Rscript tests/run_design_tests.R --smoke-only
-Rscript tests/run_design_tests.R --skip-smoke
-Rscript tests/run_design_tests.R --case=T07
-Rscript tests/run_design_tests.R --case=E04
-```
-
-`E01`–`E05` copy the real launcher, engine, matching configuration, and matching example workbook into isolated smoke sandboxes before execution, so relative paths are tested without writing generated files into the repository's `examples/` folder. In addition to workbook/PDF/log creation and workbook-structure checks, Example 4 must preserve the 2 × 6 fully within-subjects design and exercise both repeated-measures ANOVA and ART-ANOVA; Example 5 must exercise both mixed ANOVA and mixed ART-ANOVA. The v37 warning audit remains active for both layers: emitted warning conditions and warnings recorded internally by the engine are collected into `test_warnings.csv` and `test_warning_summary.csv`, and unexpected warnings fail the release gate. See `tests/TEST_CASES.md` for the full matrix.
 
 ## 5. Preparing input data
 
@@ -502,13 +478,24 @@ The setting is ignored for all-between-subjects designs. The repeated/mixed ANOV
 
 #### `analysis$p_adjust_method`
 
-Multiplicity adjustment used for ANOVA/ART-ANOVA main-effect pairwise comparisons and interaction follow-up analyses. The default is Bonferroni:
+Multiplicity adjustment used for main-effect pairwise comparisons, interaction-cell comparisons, and interaction contrasts. The supplied configurations use:
 
 ```r
 p_adjust_method = "bonferroni"
 ```
 
-Common alternatives include `"holm"`, `"hochberg"`, `"hommel"`, `"BH"`, `"BY"`, `"tukey"`, `"sidak"`, `"scheffe"`, `"mvt"`, and `"none"`. The selected method is shown dynamically in the post-hoc/contrast Excel column names and definitions and in the corresponding PDF plot/page labels.
+Bonferroni is therefore the default for ANOVA/ART-ANOVA follow-up analyses. Other supported methods may include `"holm"`, `"hochberg"`, `"BH"`, `"BY"`, `"tukey"`, `"sidak"`, `"scheffe"`, `"mvt"`, and `"none"`, depending on compatibility with the underlying follow-up procedure.
+
+For a one-off analysis, the configuration value can be overridden through `run_analysis()`:
+
+```r
+run_analysis(
+  "configs/Config_My_Study.R",
+  posthoc_p_adjust_method = "holm"
+)
+```
+
+The actual method used is recorded in the outputs. Adjusted-p-related Excel field names and column definitions are generated dynamically from that method.
 
 #### `analysis$minimum_valid_n`
 
@@ -589,25 +576,28 @@ This global decision ensures that one correlation matrix contains one consistent
 
 #### `correlation$p_adjust_method`
 
-Multiplicity adjustment applied across all successfully tested variable pairs. The default is Benjamini-Hochberg (`"BH"`, also called FDR). Any method supported by `stats::p.adjust()` can be used, including `"holm"`, `"hochberg"`, `"hommel"`, `"bonferroni"`, `"BH"`, `"BY"`, `"fdr"`, and `"none"`; `"fdr"` is normalized to the equivalent `"BH"` method. The selected method controls both the adjusted values and the significance symbols in the heatmap, and is reflected dynamically in Excel column names/definitions and PDF labels.
+Multiplicity adjustment applied across all successfully tested variable pairs. The supplied configurations use:
 
-#### `correlation$label_wrap_width`
+```r
+p_adjust_method = "BH"
+```
 
-Approximate character width used to wrap long variable labels on the correlation heatmap axes.
+Thus, the default correlation adjustment is **Benjamini–Hochberg (`"BH"`)**, commonly described as an FDR correction. The alias `"fdr"` is normalized to `"BH"`. Other methods supported by `stats::p.adjust()` can be configured, including `"holm"`, `"hochberg"`, `"hommel"`, `"bonferroni"`, `"BY"`, and `"none"`.
 
-#### One-run function overrides
-
-`run_analysis()` also exposes both adjustment methods as optional arguments. `NULL` uses the configuration/default; a supplied value overrides the configuration for that run:
+For a one-off analysis, the configuration value can be overridden through `run_analysis()`:
 
 ```r
 run_analysis(
   "configs/Config_My_Study.R",
-  posthoc_p_adjust_method = "holm",
   correlation_p_adjust_method = "BY"
 )
 ```
 
-The lower-level `analyze_outcome()` and `analyze_correlations()` functions also expose a `p_adjust_method` argument. The actual methods used are recorded in `00_Run_Info` and, when logs are enabled, `logs/p_adjustment_methods_used.txt`.
+The adjusted values determine the significance symbols in the heatmap. The actual method used is recorded in the outputs, and adjusted-p-related Excel field names and definitions are generated dynamically from that method.
+
+#### `correlation$label_wrap_width`
+
+Approximate character width used to wrap long variable labels on the correlation heatmap axes.
 
 #### Pairwise missing values
 
@@ -620,7 +610,7 @@ After the global method is selected, each correlation is calculated using the fi
 - diagonal: blank;
 - unavailable pairs: `NA`.
 
-The title reports the globally selected Pearson/Spearman method, and the caption reports the actual p-value adjustment method.
+The title reports the globally selected method.
 
 ### 7.7 `plots`
 
@@ -851,7 +841,7 @@ For ART-ANOVA, effect sizes are calculated from the aligned-rank analysis and id
 
 - ANOVA branch: estimated marginal means followed by pairwise contrasts.
 - ART branch: ART-compatible contrasts.
-- Multiplicity adjustment follows `analysis$p_adjust_method` (Bonferroni by default).
+- Multiplicity adjustment follows `analysis$p_adjust_method`.
 - Significant adjusted comparisons that can be mapped to configured factor levels are drawn as brackets on main-effect plots.
 
 The main-posthoc worksheet includes parsing and annotation-eligibility fields so bracket mapping can be audited.
@@ -941,8 +931,6 @@ Worksheet prefixes are assigned after all conditional sheets have been included 
 
 Thus, for an all-between design, `07_Assumption_Tests` is followed immediately by `08_Cell_Shapiro`; there is no unused worksheet number. For within/mixed designs, `08_Sphericity_Tests` is present and the downstream sheets shift by one position.
 
-The adjusted-p column names are method-specific. For example, the defaults produce `Bonferroni_Adjusted_p` in post-hoc/contrast sheets and `BH_Adjusted_p` in `Correlation_Results`; changing the settings to Holm or BY produces `Holm_Adjusted_p` or `BY_Adjusted_p` respectively. Their significance columns and right-side definitions change at the same time. `P_Adjustment_Method` records the human-readable method actually used.
-
 Each worksheet includes a right-side section describing only the columns actually present in that design-specific output. Column order follows a common hierarchy:
 
 1. outcome/variable identifiers and categories;
@@ -954,7 +942,20 @@ Each worksheet includes a right-side section describing only the columns actuall
 
 Factor columns follow the enabled factor order defined in the configuration. Pairwise factor columns are placed with the contrast identifiers before estimates and test statistics. The writer also checks for unexpected identifier/grouping columns generated upstream and places them before remaining statistical columns rather than appending them at the far right.
 
+Adjusted-p-related fields are method-aware rather than hard-coded. For example:
+
+```text
+Bonferroni_Adjusted_p
+Holm_Adjusted_p
+BH_Adjusted_p
+BY_Adjusted_p
+```
+
+The corresponding `P_Adjustment_Method`, significance, and significance-flag fields, as well as the right-side column definitions, identify the adjustment method actually used. The logical worksheet name `Correlation_Adj_p` remains stable even when the correlation adjustment method changes.
+
 For repeated parametric ANOVA, Mauchly tests are inherently effect-specific. A two-level within-subject effect does not require a non-trivial sphericity test; such effects may therefore have no Mauchly row even though their omnibus ANOVA result is present. If ART-ANOVA is selected for a repeated outcome, the sphericity worksheet records that Mauchly testing is not applicable to that ART mixed-effects path.
+
+Every exported sphericity row is mapped back to a valid configured factorial effect. Automatically generated numeric row names from intermediate summary objects are not treated as effect identifiers, and unmapped rows are discarded before export. This prevents spurious `Effect_Code`/`Effect_Label` values such as `1`, `2`, or `3` from appearing in `Sphericity_Tests`.
 
 When correlation analysis is disabled or cannot be performed, the corresponding correlation worksheets remain in their logical positions but contain no computed test results or only the available diagnostic information.
 
@@ -977,12 +978,13 @@ Each enabled factor receives a main-effect plot. The plots include:
 - mean ± configured error bar;
 - omnibus statistic annotation;
 - consistent factor-level colors;
-- significant adjusted pairwise brackets when available; and
-- a caption reporting the number of significant adjusted comparisons.
+- significant adjusted pairwise brackets when available;
+- a caption reporting the number of significant adjusted comparisons; and
+- an annotation identifying the post-hoc p-value adjustment method actually used.
 
 ### 11.3 Interaction-effects pages
 
-Two-way and three-way interaction plots are placed on the interaction page. Plot titles use factor short labels where configured. Captions summarize the number of significant interaction contrasts or direct the user to the warning worksheet when contrasts are unavailable.
+Two-way and three-way interaction plots are placed on the interaction page. Plot titles use factor short labels where configured. Captions summarize the number of significant interaction contrasts or direct the user to the warning worksheet when contrasts are unavailable. Interaction follow-up annotations report the contrast p-value adjustment method actually used.
 
 ### 11.4 Correlation heatmap
 
@@ -992,6 +994,7 @@ When correlation analysis succeeds, the heatmap is appended after the ANOVA/ART-
 - The lower triangle contains coefficients.
 - The upper triangle contains significance symbols based on adjusted *p* values.
 - The diagonal is blank.
+- The page reports the correlation p-value adjustment method actually used (for example, Benjamini–Hochberg, Holm, or BY).
 
 ### 11.5 PDF fonts and mathematical symbols
 
@@ -1280,6 +1283,7 @@ A warning that a package was built under a different R version is usually a comp
 - The caller's random-number state is restored after analysis.
 - Output paths are derived consistently from the input file unless overridden.
 - When logs are enabled, the run records timing, configuration, engine, console output, and R session information.
+- Run metadata and configuration snapshots preserve the active post-hoc and correlation p-value adjustment methods.
 - Synthetic example data are for software demonstration only.
 
 ## 16. Scope and limitations
@@ -1290,30 +1294,7 @@ A warning that a package was built under a different R version is usually a comp
 - Shapiro–Wilk tests can be sensitive to sample size, and non-significance does not prove normality.
 - Levene non-significance does not prove equal variance. In mixed designs, the automatic screening rule requires all evaluable within-condition-specific Levene tests to be non-significant and reports the smallest p-value.
 - Repeated/mixed ART uses an ARTool mixed-effects formulation with a participant random intercept `(1|ID)`. This is a general-purpose repeated-observation specification, not a replacement for study-specific random-effects modeling when a richer model is scientifically required.
-- Repeated-design correlations use participant-level means across repeated conditions; the engine does not implement repeated-measures correlation. Version 31 retains the source-column-name validation added to the repeated-design correlation path to prevent silent zero-length correlation inputs.
+- Repeated-design correlations use participant-level means across repeated conditions; the engine does not implement repeated-measures correlation. The repeated-design correlation path validates the configured source-column names to prevent silent zero-length correlation inputs.
 - Pairwise deletion can produce different sample sizes across correlations.
 - Multiplicity corrections can substantially reduce power when many comparisons are tested.
 - Researchers should inspect diagnostics, effect estimates, confidence intervals, cell sizes, and study design before reporting results.
-
-## v33 repeated-measures diagnostic robustness
-
-For repeated-measures and mixed ANOVA, the workflow obtains Mauchly's sphericity tests and GG/HF corrections from the supported `summary(afex_aov)` output. A direct summary of the underlying `car::Anova` object is used only as a compatibility fallback. Correlation-matrix worksheet headers preserve configured outcome labels exactly, including spaces and punctuation.
-
-## v34 regression-result robustness
-
-The full v33 regression run confirmed that the remaining failures were confined to correlation-matrix header auditing and Mauchly diagnostic extraction. In v34, regression tests read correlation-matrix headers from literal worksheet cells so labels containing spaces are audited exactly as displayed in Excel. For repeated-measures ANOVA, sphericity diagnostics are first taken from the public afex summary, then supplemented from the underlying car summary component-by-component. If a finite Mauchly value is still unavailable for a non-trivial within-subject effect, the workflow recovers the value from the `car::Anova` object's stored repeated-measures matrices using the same calculation used by car's summary method. This recovery is used only for the diagnostic table and does not change the ANOVA model or its inferential results.
-
-
-## v37 warning-audit regression gate
-
-The regression runner temporarily sets `options(lifecycle_verbosity = "warning")` while tests execute so lifecycle deprecation warnings are signalled consistently. Each warning that reaches the runner is recorded with its test case, phase, condition class, message, and call. Warnings that the analysis engine deliberately captures and muffles are additionally recovered from `Warnings_Errors`, preserving model-level warnings in the audit even when they do not propagate to the console. T12's repeated-measures completeness warning is classified as expected; package-build/environment warnings are retained as environment warnings; all other warnings are treated as unexpected and fail the warning gate.
-
-
-## v38 actual-example release smoke tests
-
-The release runner now distinguishes `Design regression` and `Actual example smoke` in `test_summary.csv` and `test_report.xlsx`. Full release checking executes `T01`–`T17` plus `E01`–`E05`. Smoke cases validate the real launcher/config/data wiring, output names, workbook/PDF/log generation, design-adaptive worksheet structure, complete factorial effect counts, and warning cleanliness. They run from isolated copies under `tests/outputs/actual_examples/`, so the source example workbooks and repository folders remain unchanged.
-
-### Sphericity effect identifiers
-
-For within-subject and mixed ANOVA results, rows in `Sphericity_Tests` are exported only when the source summary row can be mapped to a configured factorial effect. `Effect_Code` therefore uses the same configured effect notation as the omnibus tables (for example `F2` or `F1:F2`), and `Effect_Label` is reconstructed from the configured factor labels. Automatic spreadsheet/data-frame row numbers such as `1`, `2`, `3`, ... are never valid effect identifiers and are excluded.
-
