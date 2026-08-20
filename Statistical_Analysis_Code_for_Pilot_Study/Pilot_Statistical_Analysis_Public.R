@@ -28,13 +28,25 @@
 #   Primary test: exact binomial test against p = .50.
 #
 # Stage 2:
-#   Audio-processing 2AFC validation.
+#   Speech validation, comprising:
+#   (a) Audio-processing 2AFC validation.
+#   (b) Transcription-based speech-intelligibility validation.
 #   Speech Source (Human vs. TTS) is within participant.
 #   Scenario (UC vs. BC) is between participant.
 #   Primary tests: four pre-specified exact binomial tests against p = .50,
 #   with Holm correction.
-#   Supplementary model: binomial GLMM,
+#   Supplementary audio-processing model: binomial GLMM,
 #       FinalMoreArtifacts ~ SpeechSource * Scenario + (1 | ParticipantID)
+#
+#   Intelligibility model: grouped word-level binomial GLMM,
+#       cbind(Correct, Incorrect) ~
+#         SpeechFidelity * Scenario +
+#         (1 | ParticipantID) +
+#         (1 | SentenceID)
+#
+#   Intelligibility practical equivalence:
+#       participant-level bootstrap 90% CI for SH - SL,
+#       evaluated against a pre-specified +/-5-percentage-point bound.
 #
 # Stage 3:
 #   Appearance Fidelity (AH vs. AL): within participant.
@@ -126,7 +138,14 @@ OUTPUT_FILE <- "Pilot_Analysis_Results.xlsx"
 # ---------------------------------------------------------------------------
 
 ALPHA <- 0.05
+
+# Stage-3 audiovisual equivalence bound on the original 7-point scale.
 EQUIV_MARGIN <- 0.50
+
+# Stage-2 speech-intelligibility equivalence bound in accuracy proportion.
+# 0.05 corresponds to +/-5 percentage points.
+INTELL_EQUIV_MARGIN <- 0.05
+
 BOOTSTRAP_B <- 20000
 BOOTSTRAP_SEED <- 20260817
 
@@ -163,10 +182,37 @@ required_columns <- c(
   "LipSync_AHSL",
   "LipSync_ALSH",
   "LipSync_ALSL",
-  "SpeechGestureMatch_AHSH",
-  "SpeechGestureMatch_AHSL",
-  "SpeechGestureMatch_ALSH",
-  "SpeechGestureMatch_ALSL"
+  "Gesture_AHSH",
+  "Gesture_AHSL",
+  "Gesture_ALSH",
+  "Gesture_ALSL"
+)
+
+
+# Intelligibility columns are positioned after the two Stage-2 2AFC
+# comparisons in the input dataset, matching the experimental procedure.
+intelligibility_required_columns <- c(
+  "Intelligibility_Scenario",
+  "Intelligibility_SpeechFidelity",
+  unlist(
+    lapply(
+      sprintf("%02d", 1:10),
+      function(s) {
+        c(
+          paste0("Intelligibility_S", s, "_Correct"),
+          paste0("Intelligibility_S", s, "_Total")
+        )
+      }
+    )
+  ),
+  "Intelligibility_TotalCorrect",
+  "Intelligibility_TotalWords",
+  "Intelligibility_Accuracy"
+)
+
+required_columns <- c(
+  required_columns,
+  intelligibility_required_columns
 )
 
 missing_columns <- setdiff(required_columns, names(dat))
@@ -247,15 +293,96 @@ assert_values(
   "Stage2_TTS_FinalMoreArtifacts"
 )
 
+
+assert_values(
+  dat$Intelligibility_Scenario,
+  c("UC", "BC"),
+  "Intelligibility_Scenario"
+)
+
+assert_values(
+  dat$Intelligibility_SpeechFidelity,
+  c("SH", "SL"),
+  "Intelligibility_SpeechFidelity"
+)
+
+# The intelligibility segment must come from the other scenario,
+# as specified in the pilot procedure.
+if (any(dat$Intelligibility_Scenario == dat$Scenario)) {
+  stop(
+    paste0(
+      "Intelligibility_Scenario must be the scenario not used for the ",
+      "participant's Stage-2 audio-processing comparisons."
+    )
+  )
+}
+
+for (s in sprintf("%02d", 1:10)) {
+
+  correct_col <- paste0(
+    "Intelligibility_S",
+    s,
+    "_Correct"
+  )
+
+  total_col <- paste0(
+    "Intelligibility_S",
+    s,
+    "_Total"
+  )
+
+  correct <- suppressWarnings(
+    as.numeric(dat[[correct_col]])
+  )
+
+  total <- suppressWarnings(
+    as.numeric(dat[[total_col]])
+  )
+
+  observed <- !is.na(total)
+
+  if (
+    any(
+      is.na(correct[observed]) |
+        correct[observed] < 0 |
+        total[observed] <= 0 |
+        correct[observed] > total[observed]
+    )
+  ) {
+    stop(
+      paste0(
+        "Invalid intelligibility count(s) in ",
+        correct_col,
+        " / ",
+        total_col,
+        "."
+      )
+    )
+  }
+}
+
+if (
+  any(
+    dat$Intelligibility_TotalCorrect < 0 |
+      dat$Intelligibility_TotalWords <= 0 |
+      dat$Intelligibility_TotalCorrect >
+        dat$Intelligibility_TotalWords
+  )
+) {
+  stop(
+    "Invalid Intelligibility_TotalCorrect / Intelligibility_TotalWords values."
+  )
+}
+
 rating_columns <- c(
   "LipSync_AHSH",
   "LipSync_AHSL",
   "LipSync_ALSH",
   "LipSync_ALSL",
-  "SpeechGestureMatch_AHSH",
-  "SpeechGestureMatch_AHSL",
-  "SpeechGestureMatch_ALSH",
-  "SpeechGestureMatch_ALSL"
+  "Gesture_AHSH",
+  "Gesture_AHSL",
+  "Gesture_ALSH",
+  "Gesture_ALSL"
 )
 
 for (v in rating_columns) {
@@ -439,6 +566,68 @@ bootstrap_equivalence <- function(
 }
 
 
+
+bootstrap_two_group_equivalence <- function(
+    high,
+    low,
+    delta = 0.05,
+    alpha = 0.05,
+    B = 20000,
+    seed = 20260817
+) {
+
+  # Participant-level bootstrap for a between-participant fidelity contrast.
+  # The difference is defined as High Fidelity - Low Fidelity and remains
+  # on the original accuracy-proportion scale.
+
+  high <- high[is.finite(high)]
+  low <- low[is.finite(low)]
+
+  set.seed(seed)
+
+  boot_diff <- replicate(
+    B,
+    mean(
+      sample(
+        high,
+        size = length(high),
+        replace = TRUE
+      )
+    ) -
+      mean(
+        sample(
+          low,
+          size = length(low),
+          replace = TRUE
+        )
+      )
+  )
+
+  ci <- quantile(
+    boot_diff,
+    probs = c(alpha, 1 - alpha),
+    names = FALSE,
+    type = 6
+  )
+
+  data.frame(
+    N_High = length(high),
+    N_Low = length(low),
+    Mean_High = mean(high),
+    Mean_Low = mean(low),
+    Mean_Difference = mean(high) - mean(low),
+    CI90_Lower = ci[1],
+    CI90_Upper = ci[2],
+    Equivalence_Margin_Lower = -delta,
+    Equivalence_Margin_Upper = delta,
+    Equivalent =
+      (ci[1] > -delta) &&
+      (ci[2] < delta)
+  )
+}
+
+
+
 build_contrast_scores <- function(
     data,
     prefix
@@ -615,7 +804,8 @@ design_overview <- data.frame(
     "Character Identity levels",
     "Scenario levels",
     "Alpha",
-    "Equivalence margin",
+    "Audiovisual equivalence margin",
+    "Intelligibility equivalence margin",
     "Bootstrap iterations",
     "Bootstrap seed"
   ),
@@ -626,6 +816,7 @@ design_overview <- data.frame(
     paste(levels(dat$Scenario), collapse = ", "),
     ALPHA,
     EQUIV_MARGIN,
+    INTELL_EQUIV_MARGIN,
     BOOTSTRAP_B,
     BOOTSTRAP_SEED
   )
@@ -841,7 +1032,18 @@ audio_probabilities <- as.data.frame(
     ),
     type = "response"
   )
-)
+) %>%
+  mutate(
+    # GLMM response-scale inference uses asymptotic z tests, so emmeans
+    # reports df = Inf. Excel cannot store numeric infinity and openxlsx
+    # otherwise writes it as #NUM!, so convert only this display field
+    # to text before exporting the workbook.
+    df = ifelse(
+      is.infinite(df),
+      "Inf",
+      as.character(df)
+    )
+  )
 
 # Character Identity is descriptive only.
 stage2_identity_desc <- audio_long %>%
@@ -860,6 +1062,302 @@ stage2_identity_desc <- audio_long %>%
   )
 
 
+
+# =============================================================================
+# 5B. STAGE 2: SPEECH-INTELLIGIBILITY VALIDATION
+# =============================================================================
+#
+# Each participant heard one previously unheard FINAL speech segment from the
+# other scenario. High- and low-speech-fidelity versions were balanced across
+# participants. The segment was presented sentence by sentence and each
+# sentence was transcribed after a single presentation.
+#
+# Word-level accuracy is analyzed as grouped binomial counts at the
+# Participant x Sentence level:
+#
+#   cbind(CorrectWords, IncorrectWords) ~
+#     SpeechFidelity * Scenario +
+#     (1 | ParticipantID) +
+#     (1 | SentenceID)
+#
+# Scenario below refers to the scenario of the INTELLIGIBILITY MATERIAL,
+# not the participant's Stage-2/Stage-3 assigned scenario.
+# =============================================================================
+
+intelligibility_long <- dat %>%
+  select(
+    ParticipantID,
+    CharacterIdentity,
+    Intelligibility_Scenario,
+    Intelligibility_SpeechFidelity,
+    matches(
+      "^Intelligibility_S[0-9]{2}_(Correct|Total)$"
+    )
+  ) %>%
+  pivot_longer(
+    cols = matches(
+      "^Intelligibility_S[0-9]{2}_(Correct|Total)$"
+    ),
+    names_to = c(
+      "SentenceNumber",
+      ".value"
+    ),
+    names_pattern =
+      "Intelligibility_(S[0-9]{2})_(Correct|Total)"
+  ) %>%
+  filter(
+    !is.na(Total),
+    Total > 0
+  ) %>%
+  mutate(
+    Correct = as.integer(Correct),
+    Total = as.integer(Total),
+    Incorrect = Total - Correct,
+
+    Scenario = factor(
+      Intelligibility_Scenario,
+      levels = c("UC", "BC")
+    ),
+
+    SpeechFidelity = factor(
+      Intelligibility_SpeechFidelity,
+      levels = c("SH", "SL")
+    ),
+
+    SentenceID = factor(
+      paste(
+        Scenario,
+        SentenceNumber,
+        sep = "_"
+      )
+    )
+  )
+
+
+# Participant-level accuracy is used for descriptive statistics
+# and practical-equivalence bootstrapping.
+intelligibility_participant <- intelligibility_long %>%
+  group_by(
+    ParticipantID,
+    CharacterIdentity,
+    Scenario,
+    SpeechFidelity
+  ) %>%
+  summarise(
+    CorrectWords = sum(Correct),
+    TotalWords = sum(Total),
+    Accuracy = CorrectWords / TotalWords,
+    .groups = "drop"
+  )
+
+
+intelligibility_desc <- intelligibility_participant %>%
+  group_by(
+    Scenario,
+    SpeechFidelity
+  ) %>%
+  summarise(
+    N = n(),
+    Mean_Accuracy = mean(Accuracy),
+    SD_Accuracy = sd(Accuracy),
+    Min_Accuracy = min(Accuracy),
+    Max_Accuracy = max(Accuracy),
+    Total_Correct_Words = sum(CorrectWords),
+    Total_Words = sum(TotalWords),
+    Pooled_Accuracy =
+      Total_Correct_Words / Total_Words,
+    .groups = "drop"
+  )
+
+
+# Primary word-level binomial GLMM.
+intelligibility_glmm <- glmer(
+  cbind(
+    Correct,
+    Incorrect
+  ) ~
+    SpeechFidelity * Scenario +
+    (1 | ParticipantID) +
+    (1 | SentenceID),
+  data = intelligibility_long,
+  family = binomial(
+    link = "logit"
+  ),
+  control = glmerControl(
+    optimizer = "bobyqa",
+    optCtrl = list(
+      maxfun = 2e5
+    )
+  )
+)
+
+
+intelligibility_glmm_fixed <- as.data.frame(
+  coef(
+    summary(
+      intelligibility_glmm
+    )
+  )
+)
+
+intelligibility_glmm_fixed <- cbind(
+  Term = rownames(
+    intelligibility_glmm_fixed
+  ),
+  intelligibility_glmm_fixed
+)
+rownames(
+  intelligibility_glmm_fixed
+) <- NULL
+
+names(
+  intelligibility_glmm_fixed
+) <- c(
+  "Term",
+  "Estimate",
+  "Std_Error",
+  "z_value",
+  "P_Value"
+)
+
+
+intelligibility_glmm_random <- as.data.frame(
+  VarCorr(
+    intelligibility_glmm
+  )
+)
+
+
+intelligibility_glmm_fit <- data.frame(
+  AIC = AIC(
+    intelligibility_glmm
+  ),
+  BIC = BIC(
+    intelligibility_glmm
+  ),
+  LogLik = as.numeric(
+    logLik(
+      intelligibility_glmm
+    )
+  ),
+  Deviance = deviance(
+    intelligibility_glmm
+  ),
+  N_Sentence_Observations =
+    nrow(
+      intelligibility_long
+    ),
+  N_Participants =
+    nlevels(
+      droplevels(
+        intelligibility_long$ParticipantID
+      )
+    ),
+  N_Sentences =
+    nlevels(
+      intelligibility_long$SentenceID
+    ),
+  Singular_Fit =
+    isSingular(
+      intelligibility_glmm,
+      tol = 1e-4
+    )
+)
+
+
+intelligibility_probabilities <- as.data.frame(
+  summary(
+    emmeans(
+      intelligibility_glmm,
+      ~ SpeechFidelity * Scenario
+    ),
+    type = "response"
+  )
+) %>%
+  mutate(
+    # As above, preserve the asymptotic df information as the text "Inf"
+    # so that the Excel export does not convert numeric infinity to #NUM!.
+    df = ifelse(
+      is.infinite(df),
+      "Inf",
+      as.character(df)
+    )
+  )
+
+
+# Practical equivalence:
+# participant-level bootstrap 90% CIs for SH - SL within each scenario.
+intelligibility_equivalence <- bind_rows(
+  lapply(
+    levels(
+      intelligibility_participant$Scenario
+    ),
+    function(scn) {
+
+      high <- intelligibility_participant %>%
+        filter(
+          Scenario == scn,
+          SpeechFidelity == "SH"
+        ) %>%
+        pull(
+          Accuracy
+        )
+
+      low <- intelligibility_participant %>%
+        filter(
+          Scenario == scn,
+          SpeechFidelity == "SL"
+        ) %>%
+        pull(
+          Accuracy
+        )
+
+      bootstrap_two_group_equivalence(
+        high = high,
+        low = low,
+        delta = INTELL_EQUIV_MARGIN,
+        alpha = ALPHA,
+        B = BOOTSTRAP_B,
+        seed =
+          BOOTSTRAP_SEED +
+          ifelse(
+            scn == "UC",
+            101,
+            102
+          )
+      ) %>%
+        mutate(
+          Scenario = scn,
+          Contrast = "SH - SL",
+          .before = 1
+        )
+    }
+  )
+)
+
+
+# Descriptive Character-Identity check only.
+intelligibility_identity_desc <-
+  intelligibility_participant %>%
+  group_by(
+    CharacterIdentity,
+    Scenario,
+    SpeechFidelity
+  ) %>%
+  summarise(
+    N = n(),
+    Mean_Accuracy =
+      mean(
+        Accuracy
+      ),
+    SD_Accuracy =
+      sd(
+        Accuracy
+      ),
+    .groups = "drop"
+  )
+
+
 # =============================================================================
 # 6. STAGE 3: AUDIOVISUAL VALIDATION
 # =============================================================================
@@ -868,20 +1366,20 @@ stage2_identity_desc <- audio_long %>%
 #
 # Public schema:
 #   LipSync_AHSH, LipSync_AHSL, LipSync_ALSH, LipSync_ALSL
-#   SpeechGestureMatch_AHSH, SpeechGestureMatch_AHSL,
-#   SpeechGestureMatch_ALSH, SpeechGestureMatch_ALSL
+#   Gesture_AHSH, Gesture_AHSL,
+#   Gesture_ALSH, Gesture_ALSL
 
 av_long <- dat %>%
   pivot_longer(
     cols = matches(
-      "^(LipSync|SpeechGestureMatch)_(AHSH|AHSL|ALSH|ALSL)$"
+      "^(LipSync|Gesture)_(AHSH|AHSL|ALSH|ALSL)$"
     ),
     names_to = c(
       ".value",
       "Condition"
     ),
     names_pattern =
-      "(LipSync|SpeechGestureMatch)_(AHSH|AHSL|ALSH|ALSL)"
+      "(LipSync|Gesture)_(AHSH|AHSL|ALSH|ALSL)"
   ) %>%
   mutate(
     Condition = factor(
@@ -947,10 +1445,10 @@ stage3_desc <- av_long %>%
     LipSync_SD =
       sd(LipSync),
 
-    SpeechGestureMatch_M =
-      mean(SpeechGestureMatch),
-    SpeechGestureMatch_SD =
-      sd(SpeechGestureMatch),
+    Gesture_M =
+      mean(Gesture),
+    Gesture_SD =
+      sd(Gesture),
 
     .groups = "drop"
   )
@@ -967,7 +1465,7 @@ lip_scores <- build_contrast_scores(
 
 match_scores <- build_contrast_scores(
   dat,
-  prefix = "SpeechGestureMatch"
+  prefix = "Gesture"
 )
 
 lip_assumptions <- check_stage3_assumptions(
@@ -1182,7 +1680,7 @@ if (match_assumptions$Use_ANOVA) {
 
   match_model <- afex::aov_ez(
     id = "ParticipantID",
-    dv = "SpeechGestureMatch",
+    dv = "Gesture",
     data = av_long,
     between = "Scenario",
     within = c(
@@ -1232,7 +1730,7 @@ if (match_assumptions$Use_ANOVA) {
 } else {
 
   match_model <- ARTool::art(
-    SpeechGestureMatch ~
+    Gesture ~
       Appearance * Speech * Scenario +
       (1 | ParticipantID),
     data = av_long
@@ -1261,7 +1759,7 @@ if (match_assumptions$Use_ANOVA) {
           )
 
         m <- ARTool::art(
-          SpeechGestureMatch ~
+          Gesture ~
             Appearance * Speech +
             (1 | ParticipantID),
           data = subdat
@@ -1629,6 +2127,27 @@ readme_table <- data.frame(
   stringsAsFactors = FALSE
 )
 
+readme_table <- bind_rows(
+  readme_table,
+  data.frame(
+    Item = c(
+      "Stage 2 intelligibility analysis",
+      "Stage 2 intelligibility random effects",
+      "Stage 2 intelligibility equivalence"
+    ),
+    Description = c(
+      "Binomial GLMM of grouped word-level transcription accuracy: SpeechFidelity * Scenario.",
+      "Random intercepts for ParticipantID and SentenceID.",
+      paste0(
+        "Participant-level bootstrap 90% CI for SH - SL within each scenario; equivalence bound +/-",
+        INTELL_EQUIV_MARGIN * 100,
+        " percentage points."
+      )
+    ),
+    stringsAsFactors = FALSE
+  )
+)
+
 writeData(
   wb,
   sheet = "README",
@@ -1867,6 +2386,68 @@ add_table_sheet(
 )
 
 
+
+# ---------------------------------------------------------------------------
+# Stage 2 speech-intelligibility sheets
+# ---------------------------------------------------------------------------
+
+add_table_sheet(
+  wb,
+  "S2_Intell_Desc",
+  intelligibility_desc,
+  note =
+    "Participant-level word-transcription accuracy by intelligibility scenario and Speech Fidelity."
+)
+
+add_table_sheet(
+  wb,
+  "S2_Intell_GLMM_Fit",
+  intelligibility_glmm_fit,
+  note =
+    "Binomial GLMM model-fit information for word-level transcription accuracy."
+)
+
+add_table_sheet(
+  wb,
+  "S2_Intell_GLMM_Fixed",
+  intelligibility_glmm_fixed,
+  note =
+    "Fixed effects from the intelligibility GLMM: Speech Fidelity, Scenario, and their interaction."
+)
+
+add_table_sheet(
+  wb,
+  "S2_Intell_GLMM_Random",
+  intelligibility_glmm_random,
+  note =
+    "Random-intercept variance components for Participant and Sentence."
+)
+
+add_table_sheet(
+  wb,
+  "S2_Intell_Prob",
+  intelligibility_probabilities,
+  note =
+    "Model-estimated transcription-accuracy probabilities from the intelligibility GLMM."
+)
+
+add_table_sheet(
+  wb,
+  "S2_Intell_Equiv",
+  intelligibility_equivalence,
+  note =
+    "Participant-level bootstrap 90% confidence intervals for the SH - SL accuracy difference. Equivalence requires the full interval to lie inside +/-5 percentage points."
+)
+
+add_table_sheet(
+  wb,
+  "S2_Intell_Identity",
+  intelligibility_identity_desc,
+  note =
+    "Descriptive Character-Identity sensitivity check for intelligibility only; no identity-specific inferential tests."
+)
+
+
 # ---------------------------------------------------------------------------
 # Stage 3 general sheets
 # ---------------------------------------------------------------------------
@@ -2043,7 +2624,8 @@ cat("============================================================\n")
 cat("Input file:", DATA_FILE, "\n")
 cat("Output workbook:", OUTPUT_FILE, "\n")
 cat("Stage 1: overall exact binomial test; Identity descriptive only.\n")
-cat("Stage 2: four exact binomial tests + supplementary GLMM.\n")
+cat("Stage 2 audio processing: four exact binomial tests + supplementary GLMM.\n")
+cat("Stage 2 intelligibility: binomial GLMM + participant-level bootstrap equivalence.\n")
 cat("Stage 3 LipSync method:", lip_assumptions$Selected_Method, "\n")
 cat("Stage 3 Speech--Gesture Match method:", match_assumptions$Selected_Method, "\n")
 cat("Stage 3 factorial model: Appearance x Speech x Scenario.\n")
